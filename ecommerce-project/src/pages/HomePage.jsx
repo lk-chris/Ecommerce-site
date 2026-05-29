@@ -5,19 +5,25 @@ import "./HomePage.css";
 
 function HomePage() {
   const [products, setProducts] = useState([]);
+  const [cart, setCart] = useState([]);
 
   useEffect(()=>{
-    axios.get('http://localhost:3000/api/products')
+    axios.get('/api/products')
     .then((response)=> {
       setProducts(response.data)
     });
+
+    axios.get('/api/cart-items')
+    .then((response)=> {
+      setCart(response.data)
+    })
   }, [])
   
 
   return (
     <>
       <title>Home</title>
-      <Header />
+      <Header cart={cart}/>
 
       <div className="home-page">
         <div className="products-grid">
