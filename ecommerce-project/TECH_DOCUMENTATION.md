@@ -20,6 +20,7 @@ As we add new features and libraries, this documentation will be updated to serv
    - [createRoot](#createroot)
    - [StrictMode](#strictmode)
 5. [State Lifting & Props Flow](#5-state-lifting--props-flow)
+6. [Direct DOM Access & useRef](#6-direct-dom-access--useref)
 
 ---
 
@@ -291,10 +292,64 @@ export function Header({ cart }) {
   });
 
   return (
-    <div className="header">
-      {/* ... logo and search bar ... */}
-      <div className="cart-quantity">{totalQuantity}</div>
     </div>
   );
 }
 ```
+
+---
+
+## 6. Direct DOM Access & useRef
+
+In modern React, your interface is **declarative**. This means you describe *what* the HTML should look like based on your *state* (data). You almost never need to manually select, edit, or delete HTML elements like you did in Vanilla JavaScript (e.g., using `document.getElementById` or `document.querySelector`).
+
+As long as you fetch the data you need from your API, you can simply loop through it and output the elements dynamically. React handles all the creation, rendering, and removal under the hood.
+
+### When do we actually need to select a DOM element?
+Sometimes, you need to perform actions that cannot be done purely with HTML declarations:
+* **Focusing an input field** (e.g., placing the cursor inside a search bar automatically).
+* **Triggering a CSS transition/animation** manually.
+* **Playing or pausing a HTML5 `<video>` or `<audio>` player**.
+* **Measuring the exact pixel height or width** of an element.
+
+In these rare cases, React provides the **`useRef`** hook to safely reference real DOM elements.
+
+### How it Works (Declarative vs. Imperative)
+
+* **Import Syntax:**
+  ```javascript
+  import { useRef } from 'react';
+  ```
+
+* **Step-by-Step Implementation:**
+  1. **Create the Ref:** Initialize a reference variable using `useRef(null)` inside your component.
+  2. **Attach the Ref:** Assign it to a JSX element using the special `ref` attribute.
+  3. **Access the DOM Element:** React automatically links the element to your reference. You can access the real, raw DOM element using `.current`.
+
+* **Code Example (Focusing an Input on Button Click):**
+  ```javascript
+  import { useRef } from 'react';
+
+  function SearchBar() {
+    // 1. Create a reference to hold the input element
+    const inputRef = useRef(null);
+
+    const handleSearchClick = () => {
+      // 3. Access the raw DOM input element and call .focus()
+      inputRef.current.focus();
+    };
+
+    return (
+      <div className="search-container">
+        {/* 2. Attach the ref to the physical input element */}
+        <input ref={inputRef} type="text" placeholder="Search..." />
+        
+        <button onClick={handleSearchClick}>Focus Search</button>
+      </div>
+    );
+  }
+  ```
+
+### Why we do NOT use `document.querySelector` in React:
+1. **The Virtual DOM:** React works by maintaining a virtual copy of your webpage. Using `document.querySelector` bypasses React's virtual model, which can lead to visual bugs, states getting out of sync, or the page crashing when elements are dynamically added/removed.
+2. **Component Reusability:** If you render a component twice on the same page, `document.querySelector('#my-button')` will always select the *first* button on the page, confusing your app. A `ref` is local to each specific instance of the component, ensuring it always targets the correct element.
