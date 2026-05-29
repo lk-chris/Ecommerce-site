@@ -19,6 +19,7 @@ As we add new features and libraries, this documentation will be updated to serv
 4. [React DOM Mounting & Dev Tools](#4-react-dom-mounting--dev-tools)
    - [createRoot](#createroot)
    - [StrictMode](#strictmode)
+5. [State Lifting & Props Flow](#5-state-lifting--props-flow)
 
 ---
 
@@ -217,3 +218,83 @@ React Router enables **Client-Side Routing**, which allows users to navigate bet
     <App />
   </StrictMode>
   ```
+
+---
+
+## 5. State Lifting & Props Flow
+
+In React, data flows in a single direction: **downward** (from parent to child components) via **Props** (short for properties). 
+
+### What is State Lifting?
+Sometimes, multiple sibling components (like your `Header` and the `CheckoutPage`) need to share the same data (like the shopping cart). In React, sibling components cannot talk directly to each other. 
+To share the data, we **"lift"** the state up to their closest common parent component (in this case, `App.jsx`). The parent component holds the shared state and passes it down to its children via props.
+
+### Real-World Example (Data Flow in this Project)
+
+```mermaid
+graph TD
+    App[App.jsx <br> Holds 'cart' state] -->|Passes cart prop| HomePage[HomePage.jsx <br> Receives 'cart' prop]
+    App -->|Can pass cart prop| CheckoutPage[CheckoutPage.jsx]
+    HomePage -->|Passes cart prop| Header[Header.jsx <br> Receives 'cart' and loops to sum quantities]
+```
+
+#### 1. The Source: `src/App.jsx`
+The state is initialized at the top level and passed down through the Route component:
+```javascript
+function App() {
+  const [cart, setCart] = useState([]);
+
+  // Fetching cart items inside App
+  useEffect(() => {
+    axios.get("/api/cart-items").then((response) => {
+      setCart(response.data);
+    });
+  }, []);
+
+  return (
+    <Routes>
+      {/* We pass the cart state variable down to the HomePage element */}
+      <Route index element={<HomePage cart={cart} />} />
+      {/* Other routes */}
+    </Routes>
+  );
+}
+```
+
+#### 2. The Midpoint: `src/pages/HomePage.jsx`
+`HomePage` receives the `cart` prop in its function arguments (destructured) and forwards it directly to the `<Header>` component:
+```javascript
+// HomePage receives 'cart' as a prop
+function HomePage({ cart }) {
+  return (
+    <>
+      {/* HomePage passes 'cart' down to the Header component */}
+      <Header cart={cart} />
+      <div className="home-page">
+        {/* ... products list ... */}
+      </div>
+    </>
+  );
+}
+```
+
+#### 3. The Destination: `src/components/Header.jsx`
+The `Header` component receives the `cart` prop and uses it to calculate and display the total cart quantity dynamically:
+```javascript
+// Header receives the 'cart' prop
+export function Header({ cart }) {
+  let totalQuantity = 0;
+
+  // Loops through the array to sum all item quantities
+  cart.forEach((cartItem) => {
+    totalQuantity += cartItem.quantity;
+  });
+
+  return (
+    <div className="header">
+      {/* ... logo and search bar ... */}
+      <div className="cart-quantity">{totalQuantity}</div>
+    </div>
+  );
+}
+```
