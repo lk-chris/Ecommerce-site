@@ -1,3 +1,3 @@
-export function formatMoney(amountCents){
-    `$${(amountCents/ 100).toFixed(2)}`
+export function formatMoney(amountCents) {
+  return `$${(amountCents / 100).toFixed(2)}`;
 }
