@@ -9,9 +9,15 @@ export function OrdersPage({ cart }) {
   const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    axios.get("/api/orders?expand=products").then((response) => {
-      setOrders(response.data);
-    });
+    const fetchOrders = async () => {
+      try {
+        const response = await axios.get("/api/orders?expand=products");
+        setOrders(response.data);
+      } catch (error) {
+        console.error("Error fetching orders:", error);
+      }
+    };
+    fetchOrders();
   }, []);
 
   return (
@@ -19,7 +25,7 @@ export function OrdersPage({ cart }) {
       <Header cart={cart} />
 
       <div className="orders-page">
-        <div className="page-title">Your Orders</div>
+        <div className="pag e-title">Your Orders</div>
 
         <div className="orders-grid">
           {orders.map((order) => {

@@ -9,6 +9,7 @@ As we add new features and libraries, this documentation will be updated to serv
 ## Table of Contents
 1. [React Core & Hooks](#1-react-core--hooks)
    - [useState](#usestate)
+   - [Controlled Inputs](#controlled-inputs-with-usestate)
    - [useEffect](#useeffect)
 2. [React Router Navigation](#2-react-router-navigation)
    - [BrowserRouter](#browserrouter)
@@ -16,10 +17,13 @@ As we add new features and libraries, this documentation will be updated to serv
    - [Link](#link)
 3. [Data Fetching & APIs](#3-data-fetching--apis)
    - [Axios](#axios)
+   - [Promise .then vs. async/await](#handling-asynchronous-operations-promise-then-vs-asyncawait)
+   - [Axios vs. async/await](#axios-vs-asyncawait-understanding-the-core-difference)
 4. [React DOM Mounting & Dev Tools](#4-react-dom-mounting--dev-tools)
    - [createRoot](#createroot)
    - [StrictMode](#strictmode)
 5. [State Lifting & Props Flow](#5-state-lifting--props-flow)
+   - [Rendering Lists: Props & Keys](#rendering-lists-component-props-and-keys)
 6. [Direct DOM Access & useRef](#6-direct-dom-access--useref)
 
 ---
@@ -55,6 +59,43 @@ As we add new features and libraries, this documentation will be updated to serv
     </div>
   );
   ```
+
+#### Controlled Inputs with useState
+
+In traditional HTML/JavaScript, when a user types into a text input, the web browser's DOM manages the input's value internally. If you want to access that value, you must query the DOM (e.g., using `document.getElementById('search').value`).
+
+In React, we prefer **Controlled Inputs**. A controlled input is a form element whose value is entirely driven by React **state** rather than the browser's DOM. React becomes the "single source of truth" for the input field.
+
+##### How It Works (The 2-Way Binding):
+To create a controlled input, you must link two properties:
+1. **`value` Prop:** You bind the input's `value` attribute directly to your React state variable.
+2. **`onChange` Event Handler:** You listen for changes and update your state variable using the setter function (`e.target.value` gets the current text).
+
+##### Real-World Code Example:
+```javascript
+import { useState } from 'react';
+
+function SearchBox() {
+  const [query, setQuery] = useState(""); // Initialize state
+
+  return (
+    <div className="search-wrapper">
+      <input 
+        type="text" 
+        value={query} // 1. Drive value from state
+        onChange={(e) => setQuery(e.target.value)} // 2. Update state when typing
+        placeholder="Search products..." 
+      />
+      <p>You are searching for: {query}</p>
+    </div>
+  );
+}
+```
+
+##### Why Use Controlled Inputs?
+* **Instant Validation:** You can validate user input as they type (e.g., block numeric characters or format a credit card number on the fly).
+* **Dynamic UI Behavior:** You can instantly filter a list, enable/disable buttons, or display input warning labels in real-time as the user types because every keystroke triggers a state update and re-render.
+* **Easy Resets:** Clearing or pre-filling the input field is as simple as calling `setQuery("")` or setting an initial state, which automatically keeps the input UI perfectly in sync.
 
 ---
 
@@ -171,17 +212,105 @@ React Router enables **Client-Side Routing**, which allows users to navigate bet
   - Automatically parses JSON responses so you don't need to do `response.json()`.
   - Excellent security defaults and request/response interceptors.
   - Highly robust error handling compared to the native browser `fetch` API.
-* **Real-World Example (`src/pages/HomePage.jsx`):**
+
+---
+
+### Handling Asynchronous Operations: Promise `.then` vs. `async/await`
+
+Because fetching data from a server takes time, JavaScript handles these requests **asynchronously**—meaning the browser doesn't freeze or block the rest of the application while waiting for the response. There are two primary patterns used in our React applications to manage this: **Promise `.then()` chaining** and the **`async/await`** syntax.
+
+---
+
+#### 1. Promise `.then()` Chaining (Traditional Style)
+Under the hood, `axios` requests return a **Promise** object. A Promise represents an operation that hasn't completed yet but is expected to in the future. To handle the successful completion of a Promise, we chain a `.then()` block. To handle failures, we append a `.catch()` block.
+
+* **How It Works (Step-by-Step):**
+  1. **Initiate Request:** `axios.get(url)` sends the request and returns a Promise.
+  2. **Success Chaining (`.then`):** When the server successfully returns the data, the callback function inside `.then()` executes, receiving the `response` object.
+  3. **Failure Capture (`.catch`):** If the network is down or the server throws an error (e.g., a `500 Internal Server Error`), the code skips `.then()` and runs the callback function inside `.catch()`.
+
+* **Real-World Example (`src/pages/checkout/CheckoutPage.jsx`):**
   ```javascript
-  axios.get('http://localhost:3000/api/products')
-    .then((response) => {
-      // response.data holds the actual array parsed automatically
-      console.log(response.data);
-    })
-    .catch((error) => {
-      console.error("Failed to fetch products:", error);
-    });
+  useEffect(() => {
+    // 1. Send the GET request
+    axios.get("/api/payment-summary")
+      .then((response) => {
+        // 2. Executed when the request succeeds
+        setPaymentSummary(response.data);
+      })
+      .catch((error) => {
+        // 3. Executed if the request fails
+        console.error("Error fetching payment summary:", error);
+      });
+  }, []);
   ```
+
+---
+
+#### 2. `async/await` Syntax (Modern Style)
+Introduced in newer JavaScript standards (ES8), `async/await` is a syntactic wrapper built on top of Promises. It allows you to write asynchronous code that looks and behaves like synchronous (line-by-line) code. This significantly improves readability and simplifies error handling using standard `try/catch` blocks.
+
+* **The Rules of `async/await`:**
+  - **`async` keyword:** You must place the `async` keyword before a function declaration to turn it into an asynchronous function.
+  - **`await` keyword:** You place the `await` keyword before any Promise-returning statement (like `axios.get`). The execution of the function pauses at that line until the Promise resolves, then assigns the result directly to the variable.
+  - **`try/catch` blocks:** Since we don't have `.catch()`, we wrap our code in a `try {}` block, and handle any errors in a `catch (error) {}` block.
+
+* **CRITICAL React Gotcha (Async in `useEffect`):**
+  A React `useEffect` hook callback function **cannot** be declared directly as `async` (e.g., `useEffect(async () => { ... })` is illegal). This is because `useEffect` expects its callback to return either nothing or a cleanup function. An `async` function implicitly returns a Promise, which confuses React.
+  
+  **The Solution:** Declare a nested `async` function *inside* the effect callback, and then invoke it immediately.
+
+* **Real-World Example (`src/pages/checkout/CheckoutPage.jsx`):**
+  ```javascript
+  useEffect(() => {
+    // 1. Declare a nested async function
+    const fetchPaymentSummary = async () => {
+      try {
+        // 2. Await the Axios promise directly
+        const response = await axios.get("/api/payment-summary");
+        
+        // 3. Update state with response data
+        setPaymentSummary(response.data);
+      } catch (error) {
+        // 4. Safely handle errors in the catch block
+        console.error("Error fetching payment summary:", error);
+      }
+    };
+
+    // 5. Invoke the nested async function immediately
+    fetchPaymentSummary();
+  }, []);
+  ```
+
+---
+
+#### Comparison: `.then` vs `async/await`
+
+| Feature | Promise `.then()` | `async/await` |
+| :--- | :--- | :--- |
+| **Readability** | Can lead to nested callback nesting ("callback hell") with multiple requests. | Looks like synchronous code, reading linearly from top to bottom. |
+| **Error Handling** | Handled via `.catch()` chained to the end of the Promise. | Handled using standard JavaScript `try/catch` blocks. |
+| **Variables Scope** | Variables resolved inside `.then()` are scoped within that callback. | Variables resolved using `await` are available in the entire function scope. |
+| **Debugging** | Harder to place breakpoints or step through code line-by-line. | Easy to set breakpoints and step through asynchronously line-by-line. |
+
+---
+
+#### Axios vs. async/await: Understanding the Core Difference
+
+A very common point of confusion when starting out with modern web development is understanding the difference—and relationship—between **Axios** and **async/await**. They are not competing technologies, but rather complementary partners that handle different aspects of asynchronous programming.
+
+| Aspect | Axios | `async/await` |
+| :--- | :--- | :--- |
+| **What is it?** | An **HTTP Client Library** (third-party package). | A **JavaScript Language Syntax** (native feature). |
+| **Primary Job** | Sending and receiving network requests (HTTP GET, POST, etc.) to/from a backend API server. | Managing and simplifying asynchronous control flow (Promises) in JavaScript code. |
+| **Alternative to...** | The browser's native `fetch()` API or `XMLHttpRequest`. | Promise `.then()` and `.catch()` chains. |
+| **How they interact** | An Axios request (like `axios.get('/api')`) returns a native JavaScript **Promise** object. | You place `await` before an Axios call to pause execution until that **Promise** resolves, extracting the result. |
+
+##### Real-World Analogy: Ordering Food
+* **Axios is the Delivery Service (e.g., DoorDash or UberEats).** It is the actual mechanism that travels to the restaurant (server), fetches the food (data), and brings it back to your door.
+* **`async/await` is how you wait for the food.**
+  * Using **`.then()`** is like sitting by the window, watching the street, and setting up a callback: *"When the driver arrives, then I will eat."*
+  * Using **`async/await`** is like going about your day and simply pausing your current task when the doorbell rings: you `await` the delivery, receive it directly into your hands, and then resume your next line of work.
 
 ---
 
@@ -295,7 +424,27 @@ export function Header({ cart }) {
     </div>
   );
 }
-```
+
+### Rendering Lists: Component Props and Keys
+
+When refactoring a large block of HTML/JSX inside a loop into its own custom component (e.g., pulling a single product card out of a `.map()` loop in a `ProductsGrid` into a separate `Product` component), there are two core concepts to handle: **Props Passing** and **Unique Keys**.
+
+#### 1. Why We Pass Props (e.g., `product={product}`)
+When you create a component like `Product.jsx`, it is a **blueprint** or **template**. It defines *how* any given product should be rendered. 
+* Writing `export function Product({ product, loadCart })` is like declaring a JavaScript function: `function renderProduct(product, loadCart)`.
+* It defines the *parameter inputs* but doesn't actually contain the real data yet.
+* When you loop through your products array inside `ProductsGrid.jsx` using `products.map((product) => ...)` and render `<Product product={product} />`, you are **invoking** the component with the specific product data for *that* iteration of the loop.
+* If you didn't pass `product={product}` as a prop, the `<Product />` component would render as an empty shell because it wouldn't know which specific product's name, image, or price it is supposed to display.
+
+#### 2. The proper name: "Rendering Components"
+Using a component inside JSX (e.g., `<Product />`) is formally known as **rendering a component** or **instantiating a component** (not "file calling").
+
+#### 3. Why We Pass the `key` Prop in the Loop
+A common source of confusion is the `key` prop (e.g., `key={product.id}`).
+* **Why React needs it:** When rendering a list of items dynamically, React needs a unique identifier for each item to track it in the virtual DOM. If items are added, removed, or reordered, React uses the `key` to know exactly which DOM elements to update rather than rebuilding the entire list.
+* **Where the `key` must live:** The `key` must **always** be placed on the element returned *directly* inside the `.map()` loop. In this project:
+  * **Correct:** `<Product key={product.id} ... />` inside `ProductsGrid.jsx`. React evaluates this key at the boundary of the loop.
+  * **Redundant:** Putting `key={product.id}` inside the root `div` inside `Product.jsx` does nothing for list tracking, because React does not inspect the internals of `<Product>` when reconciling the top-level list elements.
 
 ---
 
